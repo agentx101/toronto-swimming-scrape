@@ -23,6 +23,9 @@ let userMarker = null;
 let radiusCircle = null;
 const markersLayer = L.layerGroup().addTo(map);
 
+// Avoid searches against an uninitialized data set while the JSON is loading.
+searchBtn.disabled = true;
+
 const setStatus = (msg) => (statusEl.textContent = msg);
 const esc = (s) =>
   String(s)
@@ -220,6 +223,9 @@ async function geocodeAddress(address) {
 async function runSearch() {
   const address = addressEl.value.trim();
   if (!address) return setStatus("Please enter an address.");
+  if (!data || !Array.isArray(data.facilities)) {
+    return setStatus("Program data is still loading. Please try again in a moment.");
+  }
   const radiusKm = Math.max(1, Math.min(30, Number(radiusEl.value) || 8));
   const opts = {
     scope: effectiveScope(),
@@ -258,7 +264,9 @@ async function runSearch() {
       color: "#0b5cab",
       fillOpacity: 0.08,
     }).addTo(map);
-    const bounds = L.featureGroup([markersLayer, userMarker, radiusCircle]).getBounds();
+    // The search radius contains both the address and every displayed facility.
+    // Do not pass the LayerGroup to FeatureGroup: it has no getLatLng method.
+    const bounds = radiusCircle.getBounds();
     if (bounds.isValid()) map.fitBounds(bounds.pad(0.18));
     setStatus(`Found ${facilities.length} facilities within ${radiusKm} km.`);
   } catch (e) {
@@ -271,15 +279,20 @@ async function loadData() {
   const res = await fetch("./data/swim-young-kids.json");
   if (!res.ok) throw new Error("Missing data/swim-young-kids.json");
   data = await res.json();
+  if (!Array.isArray(data?.facilities)) {
+    throw new Error("Program data is invalid. Refresh the page and try again.");
+  }
   refreshDropdowns();
   const swimCount = data?.stats?.swimFacilitiesWithPrograms ?? data?.stats?.locationsWithPrograms;
+  const skateCount = data?.stats?.skatingFacilitiesWithPrograms;
   const regCount = data?.stats?.registeredFacilitiesWithPrograms;
   const totalCount = data?.stats?.totalFacilitiesCombined ?? data?.facilities?.length;
-  if (Number.isFinite(swimCount) && Number.isFinite(regCount) && Number.isFinite(totalCount)) {
-    setStatus(`Loaded ${totalCount} facilities (${swimCount} swim, ${regCount} registered).`);
+  if (Number.isFinite(swimCount) && Number.isFinite(skateCount) && Number.isFinite(regCount) && Number.isFinite(totalCount)) {
+    setStatus(`Loaded ${totalCount} facilities (${swimCount} swim, ${skateCount} skating, ${regCount} registered).`);
   } else {
     setStatus(`Loaded ${data.facilities.length} facilities.`);
   }
+  searchBtn.disabled = false;
 }
 
 searchBtn.addEventListener("click", runSearch);
@@ -290,4 +303,7 @@ programScopeEl.addEventListener("change", refreshDropdowns);
 dropinOnlyEl.addEventListener("change", refreshDropdowns);
 activityTypeFilterEl.addEventListener("change", refreshDropdowns);
 
-loadData().catch((e) => setStatus(`Error: ${e.message}`));
+loadData().catch((e) => {
+  searchBtn.disabled = true;
+  setStatus(`Error loading program data: ${e.message}`);
+});

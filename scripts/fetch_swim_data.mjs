@@ -7,6 +7,9 @@ import { fileURLToPath } from "node:url";
 const LOCATION_DATA_URL =
   "https://services3.arcgis.com/b9WvedVPoizGfvfD/arcgis/rest/services/V_Swim_Locations_2022/FeatureServer/0/query?f=json&where=Show_On_Map%20%3D%20%27Yes%27&returnGeometry=true&spatialRel=esriSpatialRelIntersects&outFields=*&outSR=102100&resultOffset=0&resultRecordCount=5000";
 const SCHEDULE_BASE_URL = "https://www.toronto.ca/data/parks/live/dropin/swim";
+const SKATE_LOCATION_DATA_URL =
+  "https://services3.arcgis.com/b9WvedVPoizGfvfD/arcgis/rest/services/Skate_Locations_v2/FeatureServer/0/query?f=json&where=Show_On_Map%20%3D%20%27Yes%27&returnGeometry=true&spatialRel=esriSpatialRelIntersects&outFields=*&outSR=102100&resultOffset=0&resultRecordCount=2000";
+const SKATE_SCHEDULE_BASE_URL = "https://www.toronto.ca/data/parks/live/dropin/skate";
 const REGAN_SEASON = "Winter";
 const REGAN_LOCATIONS_URL = `https://www.toronto.ca/data/parks/prd/regan/${REGAN_SEASON}/locations.json`;
 const REGAN_CATEGORY_KEYS = [
@@ -74,7 +77,7 @@ function isYoungKidsProgram(entry) {
   return explicitFamilyLeisureMatch || activityMatch || ageMatch;
 }
 
-function normalizeScheduleRows(scheduleRows) {
+function normalizeScheduleRows(scheduleRows, activityType) {
   const out = [];
   const seen = new Set();
 
@@ -97,6 +100,8 @@ function normalizeScheduleRows(scheduleRows) {
       time: String(row.t ?? "").trim(),
       facilityArea: String(row.f ?? "").trim(),
       reservable: Boolean(row.res),
+      activityType,
+      source: "dropin",
     };
     const key = `${normalized.activity}|${normalized.age}|${normalized.date}|${normalized.time}|${normalized.facilityArea}`;
     if (!seen.has(key)) {
@@ -208,7 +213,7 @@ async function main() {
       rows = [];
     }
 
-    const programs = normalizeScheduleRows(rows);
+    const programs = normalizeScheduleRows(rows, "Swimming");
     const kidPrograms = programs.filter((p) =>
       isYoungKidsProgram({ c: p.activity, age: p.age })
     );
@@ -234,6 +239,54 @@ async function main() {
 
   const withPrograms = facilities.filter((f) => f.programs.length > 0);
   const withKidPrograms = withPrograms.filter((f) => f.kidPrograms.length > 0);
+
+  console.log("Downloading skating rink locations...");
+  const rawSkateLocations = await fetchJsonUtfAware(SKATE_LOCATION_DATA_URL);
+  const skateFeatures = rawSkateLocations.features ?? [];
+  const skateLocations = skateFeatures
+    .map((f) => f.attributes ?? {})
+    .filter((a) => String(a.show_on_map ?? "").toLowerCase() === "yes");
+
+  console.log(`Found ${skateLocations.length} skating locations. Downloading schedules...`);
+  const skateFacilities = await pooledMap(skateLocations, 18, async (attrs, index) => {
+    const id = Number(attrs.locationid);
+    let rows = [];
+    try {
+      const schedulePayload = await fetchJsonUtfAware(
+        `${SKATE_SCHEDULE_BASE_URL}/${id}.json`
+      );
+      for (const group of Array.isArray(schedulePayload) ? schedulePayload : []) {
+        if (Array.isArray(group?.r)) rows.push(...group.r);
+      }
+    } catch {
+      rows = [];
+    }
+
+    const programs = normalizeScheduleRows(rows, "Skating");
+    const kidPrograms = programs.filter((p) =>
+      isYoungKidsProgram({ c: p.activity, age: p.age })
+    );
+
+    if (index % 25 === 0) {
+      console.log(`Processed ${index + 1}/${skateLocations.length} skating locations`);
+    }
+
+    return {
+      id,
+      name: attrs.location ?? "",
+      address: attrs.address ?? "",
+      locationType: `Skating (${attrs.location_type ?? ""})`,
+      activities: attrs.activity_type ?? "",
+      amenities: attrs.amenities ?? "",
+      website: attrs.website ?? "",
+      lat: Number(attrs.y),
+      lng: Number(attrs.x),
+      programs,
+      kidPrograms,
+    };
+  });
+  const skateWithPrograms = skateFacilities.filter((f) => f.programs.length > 0);
+  const skateWithKidPrograms = skateWithPrograms.filter((f) => f.kidPrograms.length > 0);
 
   const activityOptions = Array.from(
     new Set(
@@ -335,7 +388,7 @@ async function main() {
   );
   console.log(`Registered facilities with programs: ${regFacilities.length}`);
 
-  const combinedFacilities = [...withPrograms, ...regFacilities];
+  const combinedFacilities = [...withPrograms, ...skateWithPrograms, ...regFacilities];
   const combinedActivityOptions = Array.from(
     new Set(
       combinedFacilities.flatMap((f) =>
@@ -351,6 +404,8 @@ async function main() {
     source: {
       locations: LOCATION_DATA_URL,
       schedules: `${SCHEDULE_BASE_URL}/{locationid}.json`,
+      skateLocations: SKATE_LOCATION_DATA_URL,
+      skateSchedules: `${SKATE_SCHEDULE_BASE_URL}/{locationid}.json`,
       reganLocations: REGAN_LOCATIONS_URL,
       reganDetails: `https://www.toronto.ca/data/parks/prd/regan/${REGAN_SEASON}/{locationid}/{category}/all.json`,
     },
@@ -358,6 +413,8 @@ async function main() {
       totalPoolLocations: facilities.length,
       swimFacilitiesWithPrograms: withPrograms.length,
       locationsWithKidPrograms: withKidPrograms.length,
+      skatingFacilitiesWithPrograms: skateWithPrograms.length,
+      skatingLocationsWithKidPrograms: skateWithKidPrograms.length,
       registeredFacilitiesWithPrograms: regFacilities.length,
       totalFacilitiesCombined: combinedFacilities.length,
       // Backward-compatible alias kept for older UI code paths.
@@ -371,7 +428,7 @@ async function main() {
   await writeFile(OUTPUT_FILE, JSON.stringify(output, null, 2), "utf8");
 
   console.log(
-    `Saved ${combinedFacilities.length} total locations (${withPrograms.length} swim, ${regFacilities.length} registered) to ${OUTPUT_FILE}`
+    `Saved ${combinedFacilities.length} total locations (${withPrograms.length} swim, ${skateWithPrograms.length} skate, ${regFacilities.length} registered) to ${OUTPUT_FILE}`
   );
 }
 
