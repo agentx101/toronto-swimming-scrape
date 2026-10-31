@@ -351,6 +351,7 @@ async function main() {
             endDate: dr.endDate,
             dateLabel: dr.dateLabel,
             time: String(course.Time ?? "").trim(),
+            days: String(course.Days ?? "").trim(),
             facilityArea: "Registered Program",
             reservable: String(course.InternetReg ?? "").toLowerCase() === "yes",
             source: "registered",

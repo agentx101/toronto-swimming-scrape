@@ -1,5 +1,6 @@
 const statusEl = document.getElementById("status");
 const resultsEl = document.getElementById("results");
+const registrationBannerEl = document.getElementById("registrationBanner");
 const controlsEl = document.getElementById("controls");
 const addressEl = document.getElementById("address");
 const radiusEl = document.getElementById("radiusKm");
@@ -8,6 +9,9 @@ const activityPickerBtn = document.getElementById("activityPickerBtn");
 const activityPickerLabel = document.getElementById("activityPickerLabel");
 const activityPickerPanel = document.getElementById("activityPickerPanel");
 const programDateEl = document.getElementById("programDate");
+const programDateFieldEl = document.getElementById("programDateField");
+const weekdayFieldEl = document.getElementById("weekdayField");
+const weekdayEls = document.querySelectorAll('#weekdayField input[type="checkbox"]');
 const startHourEl = document.getElementById("startHour");
 const startMinuteEl = document.getElementById("startMinute");
 const startPeriodEl = document.getElementById("startPeriod");
@@ -42,6 +46,20 @@ const selectedActivityGroups = new Set();
 const selectedActivitySubsets = new Set();
 const markersLayer = L.layerGroup().addTo(map);
 const TORONTO_ADDRESS_API = "/api/toronto-addresses";
+const NEXT_REGISTERED_SEASON = {
+  name: "Winter 2027",
+  announced: true,
+  startsOn: "2027-01-04",
+  browseFrom: "2026-11-17",
+  registrationUrl: "https://www.toronto.ca/explore-enjoy/parks-recreation/program-activities/register-for-recreation-activities/",
+  dates: [
+    "Free Centres: Tue, Dec 1 at 7 a.m.",
+    "Older Adult programs: Mon, Dec 7 at 10 a.m.",
+    "Toronto, East York and Etobicoke: Tue, Dec 8 at 7 a.m.",
+    "North York and Scarborough: Wed, Dec 9 at 7 a.m.",
+  ],
+};
+let registeredSeasonMode = false;
 
 const ACTIVITY_CATEGORIES = [
   { name: "Swimming", icon: "&#8767;" },
@@ -56,6 +74,24 @@ const ACTIVITY_CATEGORIES = [
 searchBtn.disabled = true;
 
 const setStatus = (msg) => (statusEl.textContent = msg);
+function shouldPrioritizeNextRegisteredSeason() {
+  return effectiveScope() === "registered" && NEXT_REGISTERED_SEASON.announced;
+}
+
+function updateRegistrationBanner() {
+  const show = shouldPrioritizeNextRegisteredSeason();
+  registrationBannerEl.hidden = !show;
+  if (!show) return;
+  registrationBannerEl.innerHTML = `<p>Next season registration</p><h2>${NEXT_REGISTERED_SEASON.name} activities</h2><ul class="registration-dates">${NEXT_REGISTERED_SEASON.dates.map((date) => `<li>${esc(date)}</li>`).join("")}</ul><p><a href="${NEXT_REGISTERED_SEASON.registrationUrl}" target="_blank" rel="noopener">View City registration details</a></p>`;
+}
+
+function updateRegisteredFilterControls() {
+  const isRegistered = effectiveScope() === "registered";
+  programDateFieldEl.hidden = isRegistered;
+  programDateEl.disabled = isRegistered;
+  weekdayFieldEl.hidden = !isRegistered;
+  weekdayEls.forEach((day) => { day.disabled = !isRegistered; });
+}
 function setFiltersCollapsed(collapsed) {
   controlsEl.classList.toggle("filters-collapsed", collapsed);
   toggleFiltersBtn.textContent = collapsed ? "More filters" : "Hide filters";
@@ -425,6 +461,14 @@ function formatProgram(p) {
 function filterPrograms(programs, opts) {
   return programs.filter((p) => {
     if (opts.scope !== "all" && scopeOf(p) !== opts.scope) return false;
+    if (opts.nextRegisteredSeason && p.source === "registered" && (!p.startDate || p.startDate < NEXT_REGISTERED_SEASON.startsOn)) {
+      return false;
+    }
+    if (opts.currentReservableOnly && p.source === "registered" && !p.reservable) return false;
+    if (opts.weekdays.size && p.source === "registered") {
+      const programDays = String(p.days || "").match(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/g) || [];
+      if (!programDays.some((day) => opts.weekdays.has(day))) return false;
+    }
     const category = activityCategoryOf(p);
     if (opts.categories.size && !opts.categories.has(category)) return false;
     const group = activityGroupOf(p);
@@ -457,7 +501,9 @@ function filterPrograms(programs, opts) {
 function render(facilities) {
   markersLayer.clearLayers();
   if (!facilities.length) {
-    resultsEl.innerHTML = "<p>No nearby facilities found for those filters.</p>";
+    resultsEl.innerHTML = registeredSeasonMode
+      ? `<div class="results-empty"><p class="eyebrow">${esc(NEXT_REGISTERED_SEASON.name)}</p><h2>Next-season activities are not published yet.</h2><p>The City has announced registration dates, but its ${esc(NEXT_REGISTERED_SEASON.name.toLowerCase())} activity listings will be available to browse from ${esc(NEXT_REGISTERED_SEASON.browseFrom)}. Current-season programs are hidden while next-season registration is announced.</p></div>`
+      : "<p>No nearby facilities found for those filters.</p>";
     return;
   }
 
@@ -545,14 +591,18 @@ async function runSearch() {
   }
   const radiusKm = Math.max(1, Math.min(30, Number(radiusEl.value) || 8));
   updateTimeAvailability();
+  registeredSeasonMode = shouldPrioritizeNextRegisteredSeason();
   const opts = {
     scope: effectiveScope(),
     categories: new Set(selectedActivityCategories),
     groups: new Set(selectedActivityGroups),
     subsets: new Set(selectedActivitySubsets),
-    date: programDateEl.value || null,
-    startMin: timeSelectMinutes(startHourEl, startMinuteEl, startPeriodEl),
-    endMin: timeSelectMinutes(endHourEl, endMinuteEl, endPeriodEl),
+    date: registeredSeasonMode ? null : programDateEl.value || null,
+    startMin: registeredSeasonMode ? null : timeSelectMinutes(startHourEl, startMinuteEl, startPeriodEl),
+    endMin: registeredSeasonMode ? null : timeSelectMinutes(endHourEl, endMinuteEl, endPeriodEl),
+    nextRegisteredSeason: registeredSeasonMode,
+    currentReservableOnly: effectiveScope() === "registered" && !registeredSeasonMode,
+    weekdays: new Set([...weekdayEls].filter((day) => day.checked).map((day) => day.value)),
     kidOnly: kidOnlyEl.checked,
   };
   if (opts.startMin !== null && opts.endMin !== null && opts.endMin <= opts.startMin) {
@@ -588,7 +638,13 @@ async function runSearch() {
     const bounds = radiusCircle.getBounds();
     if (bounds.isValid()) map.fitBounds(bounds.pad(0.18));
     document.getElementById("map").scrollIntoView({ behavior: "smooth", block: "start" });
-    setStatus(`Found ${facilities.length} facilities within ${radiusKm} km.`);
+    setStatus(
+      registeredSeasonMode
+        ? facilities.length
+          ? `Found ${facilities.length} facilities with ${NEXT_REGISTERED_SEASON.name} activities within ${radiusKm} km.`
+          : `${NEXT_REGISTERED_SEASON.name} activities are not in the City feed yet. Listings are expected from ${NEXT_REGISTERED_SEASON.browseFrom}.`
+        : `Found ${facilities.length} facilities within ${radiusKm} km.`
+    );
   } catch (e) {
     setStatus(`Could not find address: ${e.message}`);
   }
@@ -603,6 +659,8 @@ async function loadData() {
     throw new Error("Program data is invalid. Refresh the page and try again.");
   }
   refreshDropdowns();
+  updateRegistrationBanner();
+  updateRegisteredFilterControls();
   const swimCount = data?.stats?.swimFacilitiesWithPrograms ?? data?.stats?.locationsWithPrograms;
   const skateCount = data?.stats?.skatingFacilitiesWithPrograms;
   const regCount = data?.stats?.registeredFacilitiesWithPrograms;
@@ -630,7 +688,11 @@ addressEl.addEventListener("input", () => {
 addressEl.addEventListener("blur", () => {
   setTimeout(() => { addressSuggestionsEl.hidden = true; }, 150);
 });
-programScopeEls.forEach((scope) => scope.addEventListener("change", refreshDropdowns));
+programScopeEls.forEach((scope) => scope.addEventListener("change", () => {
+  refreshDropdowns();
+  updateRegistrationBanner();
+  updateRegisteredFilterControls();
+}));
 activityPickerBtn.addEventListener("click", () => {
   const open = activityPickerPanel.hidden;
   activityPickerPanel.hidden = !open;
