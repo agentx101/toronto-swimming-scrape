@@ -1,10 +1,5 @@
-# Toronto Pool Finder Workspace
+# Toronto Swim, Skate & Program Finder
 
-This folder now contains the pool-finder data pipeline only.
+This workspace contains the finder and its City of Toronto data pipeline.
 
-- Swim and recreation data builder: `scripts/fetch_swim_data.mjs`
-- Generated dataset: `data/swim-young-kids.json`
-
-The agentic platform has been moved to a separate sibling folder:
-
-- `../agentic-platform/`
+The app does not currently use an API key. Address geocoding uses OpenStreetMap Nominatim without one.

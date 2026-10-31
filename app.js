@@ -239,7 +239,6 @@ async function runSearch() {
   if (opts.startMin !== null && opts.endMin !== null && opts.endMin <= opts.startMin) {
     return setStatus("End time must be after start time.");
   }
-
   setStatus("Finding your address...");
   try {
     const pos = await geocodeAddress(address);
