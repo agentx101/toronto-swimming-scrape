@@ -3,86 +3,69 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Toronto Swim, Skate & Program Finder</title>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-      crossorigin=""
-    />
-    <link rel="stylesheet" href="./styles.css" />
+    <meta name="theme-color" content="#f7f7f4" />
+    <title>Activity Finder for Toronto</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="./styles.css?v=20261031-13" />
   </head>
   <body>
-    <header>
-      <h1>Toronto Swim, Skate & Program Finder</h1>
-      <p>Enter your address to see nearby programs and schedules.</p>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Toronto Swim, Skate and Program Finder home"><span class="brand-mark" aria-hidden="true">TO</span><span>Go Toronto</span></a>
+      <p class="header-note">Find a good day out, nearby.</p>
     </header>
-
-    <main>
-      <section class="controls">
-        <label for="address">Your address</label>
-        <div class="row">
-          <input id="address" type="text" placeholder="e.g. 100 Queen St W, Toronto" />
-          <button id="searchBtn">Find Nearby</button>
-        </div>
-
-        <div class="row">
-          <label for="radiusKm">Radius (km)</label>
-          <input id="radiusKm" type="number" min="1" max="30" step="1" value="8" />
-        </div>
-
-        <div class="row filter-grid">
-          <div>
-            <label for="programScope">Program scope</label>
-            <select id="programScope">
-              <option value="all">All programs</option>
-              <option value="dropin">Drop-in activities</option>
-              <option value="registered">Registered programs</option>
-            </select>
-          </div>
-          <div>
-            <label><input id="dropinOnly" type="checkbox" /> Drop-in only</label>
-          </div>
-          <div>
-            <label for="activityTypeFilter">Activity type</label>
-            <select id="activityTypeFilter"><option value="all">All activity types</option></select>
-          </div>
-          <div>
-            <label for="programDate">Program date (optional)</label>
-            <input id="programDate" type="date" />
-          </div>
-          <div>
-            <label for="startTime">Start time (optional)</label>
-            <input id="startTime" type="time" />
-          </div>
-          <div>
-            <label for="endTime">End time (optional)</label>
-            <input id="endTime" type="time" />
-          </div>
-        </div>
-
-        <div class="row">
-          <label for="activityFilter">Activities (optional, multi-select)</label>
-        </div>
-        <div class="row">
-          <select id="activityFilter" multiple size="8"></select>
-        </div>
-        <div class="row">
-          <label><input id="kidOnly" type="checkbox" /> Only young-kid activities</label>
-        </div>
-
-        <p id="status" class="status">Loading data...</p>
+    <main id="top">
+      <section class="intro">
+        <p class="eyebrow">City of Toronto facilities</p>
+        <h1>Activity finder for Toronto.</h1>
+        <p class="intro-copy">Find City of Toronto swim and skate times near you.</p>
       </section>
-
-      <section id="map"></section>
-      <section id="results" class="results"></section>
+      <section class="address-dock" aria-label="Address search">
+        <div class="search-row">
+          <label class="address-field" for="address"><span class="field-kicker">Enter your address</span><input id="address" type="text" placeholder="e.g. 100 Queen St W, Toronto" autocomplete="street-address" /><span id="addressSuggestions" class="address-suggestions" role="listbox" hidden></span></label>
+        </div>
+      </section>
+      <section id="controls" class="controls" aria-label="Search and filters">
+        <div class="quick-filters">
+          <label class="compact-field" for="radiusKm"><span>Radius</span><select id="radiusKm" aria-label="Search radius"><option value="2">2 km</option><option value="5">5 km</option><option value="8" selected>8 km</option><option value="15">15 km</option><option value="30">30 km</option></select></label>
+          <div class="activity-picker">
+            <span>Activity</span>
+            <button id="activityPickerBtn" type="button" aria-expanded="false" aria-controls="activityPickerPanel"><span id="activityPickerLabel">All activities</span><span aria-hidden="true">v</span></button>
+            <div id="activityPickerPanel" class="activity-picker-panel" role="dialog" aria-label="Activity filters" hidden></div>
+          </div>
+        </div>
+        <div class="secondary-toggles">
+          <fieldset class="scope-toggle"><legend>Program scope</legend><div class="scope-options"><input id="scopeDropin" type="radio" name="programScope" value="dropin" checked /><label for="scopeDropin">Drop-in</label><input id="scopeRegistered" type="radio" name="programScope" value="registered" /><label for="scopeRegistered">Registered</label></div></fieldset>
+          <label class="switch-field kid-friendly-toggle"><input id="kidOnly" type="checkbox" checked /><span class="switch" aria-hidden="true"></span><span>Kid-friendly</span></label>
+        </div>
+        <div class="filter-drawer">
+          <p class="filter-title">More options <span>Refine your results</span></p>
+          <div class="filter-grid">
+            <label for="programDate">Date<input id="programDate" type="date" /></label>
+            <div class="time-range" role="group" aria-label="Time window">
+              <label>From
+                <span class="time-selects"><select id="startHour" aria-label="Start hour"></select><select id="startMinute" aria-label="Start minute"></select><select id="startPeriod" aria-label="Start AM or PM"></select></span>
+              </label>
+              <label>Until
+                <span class="time-selects"><select id="endHour" aria-label="End hour"></select><select id="endMinute" aria-label="End minute"></select><select id="endPeriod" aria-label="End AM or PM"></select></span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="filter-actions">
+          <button id="toggleFiltersBtn" class="filter-toggle" type="button" aria-expanded="true">Hide filters</button>
+          <button id="searchBtn" class="primary-action" type="button">Search nearby</button>
+        </div>
+        <p id="status" class="status" aria-live="polite">Loading City of Toronto programs...</p>
+      </section>
+      <section class="discovery-layout">
+        <div class="map-wrap"><div id="map" aria-label="Map of nearby facilities"></div><div class="map-caption">Search an address to place nearby activities on the map.</div></div>
+        <section id="results" class="results" aria-live="polite"><div class="results-empty"><p class="eyebrow">Ready when you are</p><h2>Where should we start?</h2><p>Enter an address to find City programs nearby.</p></div></section>
+      </section>
     </main>
-
-    <script
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-      crossorigin=""
-    ></script>
-    <script src="./app.js" type="module"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="./app.js?v=20261031-14" type="module"></script>
   </body>
 </html>
