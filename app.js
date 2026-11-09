@@ -75,14 +75,23 @@ searchBtn.disabled = true;
 
 const setStatus = (msg) => (statusEl.textContent = msg);
 function shouldPrioritizeNextRegisteredSeason() {
-  return effectiveScope() === "registered" && NEXT_REGISTERED_SEASON.announced;
+  if (effectiveScope() !== "registered" || !NEXT_REGISTERED_SEASON.announced) return false;
+  return (data?.facilities || []).some((facility) =>
+    (facility.programs || []).some(
+      (program) => program.source === "registered" && program.startDate >= NEXT_REGISTERED_SEASON.startsOn
+    )
+  );
 }
 
 function updateRegistrationBanner() {
-  const show = shouldPrioritizeNextRegisteredSeason();
+  const show = effectiveScope() === "registered" && NEXT_REGISTERED_SEASON.announced;
   registrationBannerEl.hidden = !show;
   if (!show) return;
-  registrationBannerEl.innerHTML = `<p>Next season registration</p><h2>${NEXT_REGISTERED_SEASON.name} activities</h2><ul class="registration-dates">${NEXT_REGISTERED_SEASON.dates.map((date) => `<li>${esc(date)}</li>`).join("")}</ul><p><a href="${NEXT_REGISTERED_SEASON.registrationUrl}" target="_blank" rel="noopener">View City registration details</a></p>`;
+  const nextSeasonReady = shouldPrioritizeNextRegisteredSeason();
+  const availabilityNote = nextSeasonReady
+    ? "Showing next-season activities."
+    : `Showing current-season activities until ${NEXT_REGISTERED_SEASON.name.toLowerCase()} listings are published.`;
+  registrationBannerEl.innerHTML = `<p>Next season registration</p><h2>${NEXT_REGISTERED_SEASON.name} activities</h2><ul class="registration-dates">${NEXT_REGISTERED_SEASON.dates.map((date) => `<li>${esc(date)}</li>`).join("")}</ul><p>${esc(availabilityNote)} <a href="${NEXT_REGISTERED_SEASON.registrationUrl}" target="_blank" rel="noopener">View City registration details</a></p>`;
 }
 
 function updateRegisteredFilterControls() {
@@ -597,7 +606,7 @@ async function runSearch() {
     categories: new Set(selectedActivityCategories),
     groups: new Set(selectedActivityGroups),
     subsets: new Set(selectedActivitySubsets),
-    date: registeredSeasonMode ? null : programDateEl.value || null,
+    date: effectiveScope() === "registered" ? null : programDateEl.value || null,
     startMin: registeredSeasonMode ? null : timeSelectMinutes(startHourEl, startMinuteEl, startPeriodEl),
     endMin: registeredSeasonMode ? null : timeSelectMinutes(endHourEl, endMinuteEl, endPeriodEl),
     nextRegisteredSeason: registeredSeasonMode,
