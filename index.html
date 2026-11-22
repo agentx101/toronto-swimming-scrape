@@ -45,7 +45,7 @@
           <div class="filter-grid">
             <label id="programDateField" for="programDate">Date<input id="programDate" type="date" /></label>
             <fieldset id="weekdayField" class="weekday-field" hidden><legend>Days</legend><div class="weekday-options"><label><input type="checkbox" value="Mon" checked />Mon</label><label><input type="checkbox" value="Tue" checked />Tue</label><label><input type="checkbox" value="Wed" checked />Wed</label><label><input type="checkbox" value="Thu" checked />Thu</label><label><input type="checkbox" value="Fri" checked />Fri</label><label><input type="checkbox" value="Sat" checked />Sat</label><label><input type="checkbox" value="Sun" checked />Sun</label></div></fieldset>
-            <div class="time-range" role="group" aria-label="Time window">
+            <div id="timeRangeField" class="time-range" role="group" aria-label="Time window">
               <label>From
                 <span class="time-selects"><select id="startHour" aria-label="Start hour"></select><select id="startMinute" aria-label="Start minute"></select><select id="startPeriod" aria-label="Start AM or PM"></select></span>
               </label>
@@ -68,6 +68,6 @@
       </section>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="./app.js?v=20261122-01" type="module"></script>
+    <script src="./app.js?v=20261122-02" type="module"></script>
   </body>
 </html>

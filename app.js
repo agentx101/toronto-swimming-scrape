@@ -12,6 +12,7 @@ const programDateEl = document.getElementById("programDate");
 const programDateFieldEl = document.getElementById("programDateField");
 const weekdayFieldEl = document.getElementById("weekdayField");
 const weekdayEls = document.querySelectorAll('#weekdayField input[type="checkbox"]');
+const timeRangeFieldEl = document.getElementById("timeRangeField");
 const startHourEl = document.getElementById("startHour");
 const startMinuteEl = document.getElementById("startMinute");
 const startPeriodEl = document.getElementById("startPeriod");
@@ -100,6 +101,10 @@ function updateRegisteredFilterControls() {
   programDateEl.disabled = isRegistered;
   weekdayFieldEl.hidden = !isRegistered;
   weekdayEls.forEach((day) => { day.disabled = !isRegistered; });
+  // Registered activities are future programs, so weekday is the meaningful schedule filter.
+  timeRangeFieldEl.hidden = isRegistered;
+  [startHourEl, startMinuteEl, startPeriodEl, endHourEl, endMinuteEl, endPeriodEl]
+    .forEach((control) => { control.disabled = isRegistered; });
 }
 function setFiltersCollapsed(collapsed) {
   controlsEl.classList.toggle("filters-collapsed", collapsed);
