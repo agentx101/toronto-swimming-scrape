@@ -343,6 +343,8 @@ async function main() {
             activity: String(course.CourseName ?? "").trim(),
             activityType: inferActivityTypeFromCourse(course),
             category: titleCaseCategory(task.categoryKey),
+            courseId: String(course.CourseID ?? "").trim(),
+            barcode: String(course.BarcodeID ?? "").trim(),
             age: `${String(course.AgeMin ?? "").trim()} ${String(
               course.AgeMax ?? ""
             ).trim()}`.trim(),
@@ -352,6 +354,10 @@ async function main() {
             dateLabel: dr.dateLabel,
             time: String(course.Time ?? "").trim(),
             days: String(course.Days ?? "").trim(),
+            registrationInfo: String(course.Reginfo ?? course.Regstartinfo ?? "").trim(),
+            courseStatus: String(course.CourseStatus ?? "").trim(),
+            waitlist: String(course.Waitlist ?? "").trim(),
+            registrationUrl: String(course.efun ?? "").trim(),
             facilityArea: "Registered Program",
             reservable: String(course.InternetReg ?? "").toLowerCase() === "yes",
             source: "registered",

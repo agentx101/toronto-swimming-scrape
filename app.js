@@ -473,7 +473,6 @@ function filterPrograms(programs, opts) {
     if (opts.nextRegisteredSeason && p.source === "registered" && (!p.startDate || p.startDate < NEXT_REGISTERED_SEASON.startsOn)) {
       return false;
     }
-    if (opts.currentReservableOnly && p.source === "registered" && !p.reservable) return false;
     if (opts.weekdays.size && p.source === "registered") {
       const programDays = String(p.days || "").match(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/g) || [];
       if (!programDays.some((day) => opts.weekdays.has(day))) return false;
@@ -554,9 +553,15 @@ function render(facilities) {
         .map(({ facility, program }) => {
           const date = program.date || program.dateLabel || "Scheduled dates";
           const location = `${facility.name} (${facility.distanceKm.toFixed(1)} km)`;
+          const registeredDetails = program.source === "registered"
+            ? `<small class="program-details">${esc(program.age ? `Ages ${program.age}` : "Age details on City site")}${program.days ? ` | ${esc(program.days)}` : ""}${program.registrationInfo ? ` | ${esc(program.registrationInfo)}` : ""}</small>`
+            : "";
+          const registerAction = program.source === "registered" && program.registrationUrl
+            ? `<a class="register-button" target="_blank" rel="noopener" href="${esc(program.registrationUrl)}">View and register</a>`
+            : "";
           return `<article class="session-row"><span class="session-time">${esc(program.time || "Time TBA")}</span><span class="session-place"><strong>${esc(
             location
-          )}</strong><small>${esc(facility.address)} | ${esc(date)}</small></span><span class="session-actions"><a class="facility-link" target="_blank" rel="noopener" href="${esc(
+          )}</strong><small>${esc(facility.address)} | ${esc(date)}</small>${registeredDetails}</span><span class="session-actions">${registerAction}<a class="facility-link" target="_blank" rel="noopener" href="${esc(
             facility.website
           )}" aria-label="Open facility page" title="Facility page">&#8599;</a><a class="navigate-button" target="_blank" rel="noopener" href="${esc(directionsUrl(facility))}">Navigate</a></span></article>`;
         })
@@ -610,7 +615,6 @@ async function runSearch() {
     startMin: registeredSeasonMode ? null : timeSelectMinutes(startHourEl, startMinuteEl, startPeriodEl),
     endMin: registeredSeasonMode ? null : timeSelectMinutes(endHourEl, endMinuteEl, endPeriodEl),
     nextRegisteredSeason: registeredSeasonMode,
-    currentReservableOnly: effectiveScope() === "registered" && !registeredSeasonMode,
     weekdays: new Set([...weekdayEls].filter((day) => day.checked).map((day) => day.value)),
     kidOnly: kidOnlyEl.checked,
   };
