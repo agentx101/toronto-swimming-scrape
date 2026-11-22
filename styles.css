@@ -129,5 +129,23 @@ h1 { font-family: "Fraunces", serif; font-size: clamp(2.6rem, 5vw, 5rem); line-h
 .origin-pin-wrap { background: transparent; border: 0; }
 .origin-pin { background: #d72f2f; border: 3px solid #fff; border-radius: 50% 50% 50% 0; box-shadow: 0 3px 8px rgba(98, 16, 16, .35); display: block; height: 27px; transform: rotate(-45deg); width: 27px; }
 .origin-pin::after { background: #fff; border-radius: 50%; content: ""; display: block; height: 7px; left: 7px; position: relative; top: 7px; width: 7px; }
+.site-footer { align-items: center; border-top: 1px solid var(--line); display: flex; gap: 16px; justify-content: center; margin-top: 34px; padding: 22px 0 4px; }
+.site-footer a, .whatsapp-link { background: transparent; border: 0; color: var(--coral-dark); cursor: pointer; font-size: .85rem; font-weight: 700; text-decoration: none; }
+.whatsapp-link::before { content: "WhatsApp"; font-size: .66rem; font-weight: 600; margin-right: 5px; opacity: .72; }
+.contact-modal { align-items: center; background: rgba(10, 35, 55, .55); display: flex; inset: 0; justify-content: center; padding: 20px; position: fixed; z-index: 3000; }
+.contact-modal[hidden] { display: none; }
+.contact-card { background: #fff; border-radius: 20px; box-shadow: 0 24px 60px rgba(10, 35, 55, .3); max-width: 440px; padding: 28px; position: relative; width: 100%; }
+.contact-card h2 { font-family: "Fraunces", serif; font-size: 1.8rem; margin: 0 0 8px; }
+.contact-card > p { color: var(--muted); line-height: 1.45; margin: 0 0 18px; }
+.contact-card form { display: grid; gap: 12px; }
+.contact-card form > label:not(.consent-check) { color: var(--muted); display: grid; font-size: .78rem; font-weight: 700; gap: 5px; }
+.contact-card input[type="text"], .contact-card input[type="tel"] { border: 1px solid var(--line); border-radius: 9px; color: var(--ink); min-height: 42px; padding: 8px 10px; }
+.contact-card .primary-action { min-height: 44px; padding: 10px 16px; }
+.consent-check { align-items: flex-start; color: var(--muted); display: flex; font-size: .8rem; gap: 8px; line-height: 1.35; }
+.consent-check input { margin-top: 2px; }
+.modal-close, .skip-link { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-weight: 700; }
+.modal-close { font-size: 1.3rem; padding: 5px; position: absolute; right: 14px; top: 10px; }
+.skip-link { justify-self: start; padding: 0; }
+.contact-status { color: var(--coral-dark); font-size: .8rem; margin: 0; min-height: 1em; }
 @media (max-width: 860px) { .site-header { min-height: 62px; padding: 12px 20px; } .header-note { display: none; } main { padding: 18px 16px 32px; } .intro { margin-bottom: 20px; } .intro-copy { font-size: 1rem; } .address-dock { top: 0; } .controls { border-radius: 18px; padding: 10px; } .search-row { gap: 8px; } .address-field { padding-left: 11px; } .primary-action { min-width: 82px; padding: 0 12px; } .quick-filters { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); } .compact-field, .activity-picker { flex: auto; min-width: 0; width: 100%; } .activity-picker-panel { left: auto; right: 0; width: min(370px, calc(100vw - 32px)); } .secondary-toggles { align-items: stretch; } .scope-toggle { flex: 1; min-width: 0; } .filter-grid { grid-template-columns: 1fr 1fr; } .time-range { grid-column: span 2; } .filter-grid .check-field { margin-top: 0; } .discovery-layout { display: flex; flex-direction: column; gap: 18px; } .map-wrap { align-self: stretch; order: 0; position: relative; top: auto; width: 100%; } #map { height: 42vh; min-height: 300px; } .results { order: 1; } .map-caption { display: none; } }
 @media (max-width: 480px) { h1 { font-size: 2.65rem; } .intro-copy { max-width: 330px; } .address-field { min-height: 68px; padding-top: 9px; } .primary-action { border-radius: 12px; font-size: .9rem; } .filter-title span { display: none; } .filter-grid { grid-template-columns: 1fr; } .time-range { grid-column: auto; } .time-range { gap: 8px; } .filter-actions { justify-content: space-between; } #map { border-radius: 17px; height: 38vh; min-height: 270px; } .session-row { align-items: start; } .session-actions { align-content: start; justify-content: flex-end; width: 92px; } .navigate-button { margin-left: auto; } }

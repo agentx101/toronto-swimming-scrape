@@ -1,0 +1,4 @@
+[functions.portal-intake]
+# This endpoint accepts consented contact submissions from the public static site.
+# It performs its own origin, payload, and rate checks; no browser JWT is required.
+verify_jwt = false

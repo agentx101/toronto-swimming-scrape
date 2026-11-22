@@ -23,6 +23,12 @@ const addressSuggestionsEl = document.getElementById("addressSuggestions");
 const kidOnlyEl = document.getElementById("kidOnly");
 const searchBtn = document.getElementById("searchBtn");
 const toggleFiltersBtn = document.getElementById("toggleFiltersBtn");
+const contactModalEl = document.getElementById("contactModal");
+const contactFormEl = document.getElementById("contactForm");
+const contactStatusEl = document.getElementById("contactStatus");
+const whatsappUpdatesBtn = document.getElementById("whatsappUpdatesBtn");
+const contactModalCloseBtn = document.getElementById("contactModalClose");
+const contactSkipBtn = document.getElementById("contactSkip");
 
 const map = L.map("map").setView([43.6532, -79.3832], 11);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -60,6 +66,11 @@ const NEXT_REGISTERED_SEASON = {
     "North York and Scarborough: Wed, Dec 9 at 7 a.m.",
   ],
 };
+const PORTAL_INTAKE_URL = "https://qqxbnadczaocvvryzsfi.supabase.co/functions/v1/portal-intake";
+const DEVICE_ID_KEY = "toronto-activity-device-id";
+const CONTACT_PROMPT_KEY = "toronto-activity-contact-prompt";
+const FILTERS_KEY = "toronto-activity-filters";
+const ANALYTICS_QUEUE_KEY = "toronto-activity-analytics";
 let registeredSeasonMode = false;
 
 const ACTIVITY_CATEGORIES = [
@@ -75,6 +86,44 @@ const ACTIVITY_CATEGORIES = [
 searchBtn.disabled = true;
 
 const setStatus = (msg) => (statusEl.textContent = msg);
+function deviceId() {
+  let value = localStorage.getItem(DEVICE_ID_KEY);
+  if (!value) { value = crypto.randomUUID().replaceAll("-", ""); localStorage.setItem(DEVICE_ID_KEY, value); }
+  return value;
+}
+function filterSnapshot() {
+  return { scope: effectiveScope(), kidOnly: kidOnlyEl.checked, categories: [...selectedActivityCategories], groups: [...selectedActivityGroups], subsets: [...selectedActivitySubsets] };
+}
+function saveFilters() { localStorage.setItem(FILTERS_KEY, JSON.stringify(filterSnapshot())); }
+function restoreFilters() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(FILTERS_KEY) || "null");
+    if (!saved) return;
+    document.querySelector(`input[name="programScope"][value="${saved.scope === "registered" ? "registered" : "dropin"}"]`).checked = true;
+    kidOnlyEl.checked = Boolean(saved.kidOnly);
+    (saved.categories || []).forEach((item) => selectedActivityCategories.add(item));
+    (saved.groups || []).forEach((item) => selectedActivityGroups.add(item));
+    (saved.subsets || []).forEach((item) => selectedActivitySubsets.add(item));
+  } catch { localStorage.removeItem(FILTERS_KEY); }
+}
+async function flushAnalytics() {
+  let events;
+  try { events = JSON.parse(localStorage.getItem(ANALYTICS_QUEUE_KEY) || "[]"); } catch { events = []; }
+  if (!events.length) return;
+  try {
+    const res = await fetch(PORTAL_INTAKE_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "analytics", deviceId: deviceId(), events }) });
+    if (res.ok) localStorage.removeItem(ANALYTICS_QUEUE_KEY);
+  } catch { /* Keep the privacy-safe event queue for a later attempt. */ }
+}
+function track(name, properties = {}) {
+  let events;
+  try { events = JSON.parse(localStorage.getItem(ANALYTICS_QUEUE_KEY) || "[]"); } catch { events = []; }
+  events.push({ name, properties, at: new Date().toISOString() });
+  localStorage.setItem(ANALYTICS_QUEUE_KEY, JSON.stringify(events.slice(-50)));
+  void flushAnalytics();
+}
+function openContactModal() { contactStatusEl.textContent = ""; contactModalEl.hidden = false; track("contact_prompt_opened", filterSnapshot()); }
+function closeContactModal() { contactModalEl.hidden = true; }
 function shouldPrioritizeNextRegisteredSeason() {
   if (effectiveScope() !== "registered" || !NEXT_REGISTERED_SEASON.announced) return false;
   return (data?.facilities || []).some((facility) =>
@@ -605,6 +654,8 @@ async function geocodeAddress(address) {
 }
 
 async function runSearch() {
+  saveFilters();
+  track("search_started", filterSnapshot());
   const address = addressEl.value.trim();
   if (!address) return setStatus("Please enter an address.");
   if (!data || !Array.isArray(data.facilities)) {
@@ -665,6 +716,7 @@ async function runSearch() {
           : `${NEXT_REGISTERED_SEASON.name} activities are not in the City feed yet. Listings are expected from ${NEXT_REGISTERED_SEASON.browseFrom}.`
         : `Found ${facilities.length} facilities within ${radiusKm} km.`
     );
+      track("search_completed", { ...filterSnapshot(), resultFacilities: facilities.length });
   } catch (e) {
     setStatus(`Could not find address: ${e.message}`);
   }
@@ -713,6 +765,8 @@ programScopeEls.forEach((scope) => scope.addEventListener("change", () => {
   updateRegistrationBanner();
   updateRegisteredFilterControls();
   updateTimeAvailability();
+  saveFilters();
+  track("scope_changed", filterSnapshot());
 }));
 activityPickerBtn.addEventListener("click", () => {
   const open = activityPickerPanel.hidden;
@@ -752,6 +806,8 @@ activityPickerPanel.addEventListener("change", (event) => {
     else selectedActivitySubsets.delete(key);
   }
   renderActivityPicker();
+  saveFilters();
+  track("activity_filter_changed", filterSnapshot());
 });
 document.addEventListener("click", (event) => {
   if (!event.target.closest(".activity-picker")) {
@@ -764,9 +820,30 @@ for (const timeSelect of [startHourEl, startMinuteEl, startPeriodEl, endHourEl, 
   timeSelect.addEventListener("change", updateTimeAvailability);
 }
 
+whatsappUpdatesBtn.addEventListener("click", openContactModal);
+contactModalCloseBtn.addEventListener("click", closeContactModal);
+contactSkipBtn.addEventListener("click", () => { localStorage.setItem(CONTACT_PROMPT_KEY, "skipped"); closeContactModal(); track("contact_prompt_skipped", filterSnapshot()); });
+contactFormEl.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = new FormData(contactFormEl);
+  contactStatusEl.textContent = "Saving your preferences...";
+  try {
+    const response = await fetch(PORTAL_INTAKE_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "contact", deviceId: deviceId(), name: form.get("name"), phone: form.get("phone"), consent: form.get("consent") === "on", filters: filterSnapshot() }) });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Could not save your details.");
+    localStorage.setItem(CONTACT_PROMPT_KEY, "submitted");
+    track("contact_submitted", filterSnapshot());
+    contactStatusEl.textContent = "You are all set.";
+    setTimeout(closeContactModal, 800);
+  } catch (error) { contactStatusEl.textContent = error.message; track("contact_submit_failed", filterSnapshot()); }
+});
+document.querySelector('.site-footer a[href^="mailto:"]').addEventListener("click", () => track("contact_link_clicked"));
+restoreFilters();
 initializeDateAndTimeControls();
 requestAnimationFrame(() => map.invalidateSize());
 window.addEventListener("resize", () => map.invalidateSize());
+track("page_view");
+if (!localStorage.getItem(CONTACT_PROMPT_KEY)) setTimeout(openContactModal, 900);
 loadData().catch((e) => {
   searchBtn.disabled = true;
   setStatus(`Error loading program data: ${e.message}`);

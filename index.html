@@ -66,8 +66,28 @@
         <div class="map-wrap"><div id="map" aria-label="Map of nearby facilities"></div><div class="map-caption">Search an address to place nearby activities on the map.</div></div>
         <section id="results" class="results" aria-live="polite"><div class="results-empty"><p class="eyebrow">Ready when you are</p><h2>Where should we start?</h2><p>Enter an address to find City programs nearby.</p></div></section>
       </section>
+      <footer class="site-footer">
+        <button id="whatsappUpdatesBtn" class="whatsapp-link" type="button">Receive updates on WhatsApp</button>
+        <a href="mailto:melbin@resolver.app?subject=Toronto%20Activity%20Finder">Contact us</a>
+      </footer>
     </main>
+    <div id="contactModal" class="contact-modal" role="dialog" aria-modal="true" aria-labelledby="contactModalTitle" hidden>
+      <div class="contact-card">
+        <button id="contactModalClose" class="modal-close" type="button" aria-label="Close">x</button>
+        <p class="eyebrow">Toronto activity updates</p>
+        <h2 id="contactModalTitle">Get WhatsApp updates</h2>
+        <p>Tell us what you are looking for and we will use it to send relevant activity updates.</p>
+        <form id="contactForm">
+          <label>Name<input id="contactName" name="name" type="text" maxlength="80" autocomplete="name" required /></label>
+          <label>Phone number<input id="contactPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" required /></label>
+          <label class="consent-check"><input id="contactConsent" name="consent" type="checkbox" required />I agree to receive updates on WhatsApp.</label>
+          <button class="primary-action" type="submit">Save updates</button>
+          <button id="contactSkip" class="skip-link" type="button">Not now</button>
+          <p id="contactStatus" class="contact-status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="./app.js?v=20261122-04" type="module"></script>
+    <script src="./app.js?v=20261122-05" type="module"></script>
   </body>
 </html>
