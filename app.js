@@ -101,10 +101,10 @@ function updateRegisteredFilterControls() {
   programDateEl.disabled = isRegistered;
   weekdayFieldEl.hidden = !isRegistered;
   weekdayEls.forEach((day) => { day.disabled = !isRegistered; });
-  // Registered activities are future programs, so weekday is the meaningful schedule filter.
-  timeRangeFieldEl.hidden = isRegistered;
+  // Future registered programs still need a preferred time-of-day filter.
+  timeRangeFieldEl.hidden = false;
   [startHourEl, startMinuteEl, startPeriodEl, endHourEl, endMinuteEl, endPeriodEl]
-    .forEach((control) => { control.disabled = isRegistered; });
+    .forEach((control) => { control.disabled = false; });
 }
 function setFiltersCollapsed(collapsed) {
   controlsEl.classList.toggle("filters-collapsed", collapsed);
@@ -428,6 +428,8 @@ function updateTimeAvailability() {
     for (const option of select.options) option.disabled = false;
   }
 
+  // Future registered sessions are not constrained by today's elapsed hours.
+  if (effectiveScope() === "registered") return;
   if (!isToday) return;
   if (timeSelectMinutes(startHourEl, startMinuteEl, startPeriodEl) < minimumToday) {
     setTimeSelects(startHourEl, startMinuteEl, startPeriodEl, minimumToday);
@@ -617,8 +619,8 @@ async function runSearch() {
     groups: new Set(selectedActivityGroups),
     subsets: new Set(selectedActivitySubsets),
     date: effectiveScope() === "registered" ? null : programDateEl.value || null,
-    startMin: registeredSeasonMode ? null : timeSelectMinutes(startHourEl, startMinuteEl, startPeriodEl),
-    endMin: registeredSeasonMode ? null : timeSelectMinutes(endHourEl, endMinuteEl, endPeriodEl),
+    startMin: timeSelectMinutes(startHourEl, startMinuteEl, startPeriodEl),
+    endMin: timeSelectMinutes(endHourEl, endMinuteEl, endPeriodEl),
     nextRegisteredSeason: registeredSeasonMode,
     weekdays: new Set([...weekdayEls].filter((day) => day.checked).map((day) => day.value)),
     kidOnly: kidOnlyEl.checked,
@@ -710,6 +712,7 @@ programScopeEls.forEach((scope) => scope.addEventListener("change", () => {
   refreshDropdowns();
   updateRegistrationBanner();
   updateRegisteredFilterControls();
+  updateTimeAvailability();
 }));
 activityPickerBtn.addEventListener("click", () => {
   const open = activityPickerPanel.hidden;
