@@ -10,6 +10,29 @@ const SCHEDULE_BASE_URL = "https://www.toronto.ca/data/parks/live/dropin/swim";
 const SKATE_LOCATION_DATA_URL =
   "https://services3.arcgis.com/b9WvedVPoizGfvfD/arcgis/rest/services/Skate_Locations_v2/FeatureServer/0/query?f=json&where=Show_On_Map%20%3D%20%27Yes%27&returnGeometry=true&spatialRel=esriSpatialRelIntersects&outFields=*&outSR=102100&resultOffset=0&resultRecordCount=2000";
 const SKATE_SCHEDULE_BASE_URL = "https://www.toronto.ca/data/parks/live/dropin/skate";
+const ADDITIONAL_DROPIN_FEEDS = [
+  {
+    name: "arts",
+    activityType: "Arts",
+    locationUrl:
+      "https://services3.arcgis.com/b9WvedVPoizGfvfD/arcgis/rest/services/COT_Arts_Hobbies_Interests_Dropins_View/FeatureServer/0/query?f=json&where=show_on_ahi_map%20%3D%20%27Yes%27&returnGeometry=true&spatialRel=esriSpatialRelIntersects&outFields=*&outSR=4326&resultOffset=0&resultRecordCount=5000",
+    scheduleBaseUrl: "https://www.toronto.ca/data/parks/live/dropin/arts",
+  },
+  {
+    name: "fitness",
+    activityType: "Fitness",
+    locationUrl:
+      "https://services3.arcgis.com/b9WvedVPoizGfvfD/arcgis/rest/services/COT_Fitness_Drop_In_View/FeatureServer/0/query?f=json&where=show_on_fitness_map%20%3D%20%27Yes%27&returnGeometry=true&spatialRel=esriSpatialRelIntersects&outFields=*&outSR=4326&resultOffset=0&resultRecordCount=5000",
+    scheduleBaseUrl: "https://www.toronto.ca/data/parks/live/dropin/fitness",
+  },
+  {
+    name: "sports",
+    activityType: "Sports",
+    locationUrl:
+      "https://services3.arcgis.com/b9WvedVPoizGfvfD/arcgis/rest/services/COT_Sports_Drop_In_View/FeatureServer/0/query?f=json&where=show_on_sports_map%20%3D%20%27Yes%27&returnGeometry=true&spatialRel=esriSpatialRelIntersects&outFields=*&outSR=4326&resultOffset=0&resultRecordCount=5000",
+    scheduleBaseUrl: "https://www.toronto.ca/data/parks/live/dropin/sports",
+  },
+];
 const REGAN_SEASON = "Winter";
 const REGAN_LOCATIONS_URL = `https://www.toronto.ca/data/parks/prd/regan/${REGAN_SEASON}/locations.json`;
 const REGAN_CATEGORY_KEYS = [
@@ -187,6 +210,44 @@ async function pooledMap(items, concurrency, task) {
   return results;
 }
 
+async function fetchAdditionalDropinFacilities(feed) {
+  console.log(`Downloading ${feed.name} drop-in locations...`);
+  const payload = await fetchJsonUtfAware(feed.locationUrl);
+  const locations = (payload.features ?? []).map((feature) => feature.attributes ?? {});
+  console.log(`Found ${locations.length} ${feed.name} locations. Downloading schedules...`);
+
+  const facilities = await pooledMap(locations, 18, async (attrs, index) => {
+    const id = Number(attrs.locationid);
+    let rows = [];
+    try {
+      const schedulePayload = await fetchJsonUtfAware(`${feed.scheduleBaseUrl}/${id}.json`);
+      for (const group of Array.isArray(schedulePayload) ? schedulePayload : []) {
+        if (Array.isArray(group?.r)) rows.push(...group.r);
+      }
+    } catch {
+      rows = [];
+    }
+
+    if (index % 50 === 0) console.log(`Processed ${index + 1}/${locations.length} ${feed.name} locations`);
+    const programs = normalizeScheduleRows(rows, feed.activityType);
+    return {
+      id,
+      name: attrs.complexname ?? "",
+      address: attrs.address ?? "",
+      locationType: `${feed.activityType} drop-in (${attrs.location_type ?? ""})`,
+      activities: "",
+      amenities: "",
+      website: attrs.website ?? "",
+      lat: Number(attrs.y),
+      lng: Number(attrs.x),
+      programs,
+      kidPrograms: programs.filter((program) => isYoungKidsProgram({ c: program.activity, age: program.age })),
+    };
+  });
+
+  return facilities.filter((facility) => facility.programs.length > 0);
+}
+
 async function main() {
   console.log("Downloading pool locations...");
   const rawLocations = await fetchJsonUtfAware(LOCATION_DATA_URL);
@@ -287,6 +348,10 @@ async function main() {
   });
   const skateWithPrograms = skateFacilities.filter((f) => f.programs.length > 0);
   const skateWithKidPrograms = skateWithPrograms.filter((f) => f.kidPrograms.length > 0);
+
+  const additionalDropinFacilities = (
+    await Promise.all(ADDITIONAL_DROPIN_FEEDS.map(fetchAdditionalDropinFacilities))
+  ).flat();
 
   const activityOptions = Array.from(
     new Set(
@@ -395,7 +460,12 @@ async function main() {
   );
   console.log(`Registered facilities with programs: ${regFacilities.length}`);
 
-  const combinedFacilities = [...withPrograms, ...skateWithPrograms, ...regFacilities];
+  const combinedFacilities = [
+    ...withPrograms,
+    ...skateWithPrograms,
+    ...additionalDropinFacilities,
+    ...regFacilities,
+  ];
   const combinedActivityOptions = Array.from(
     new Set(
       combinedFacilities.flatMap((f) =>
@@ -413,6 +483,9 @@ async function main() {
       schedules: `${SCHEDULE_BASE_URL}/{locationid}.json`,
       skateLocations: SKATE_LOCATION_DATA_URL,
       skateSchedules: `${SKATE_SCHEDULE_BASE_URL}/{locationid}.json`,
+      additionalDropinSchedules: Object.fromEntries(
+        ADDITIONAL_DROPIN_FEEDS.map((feed) => [feed.name, `${feed.scheduleBaseUrl}/{locationid}.json`])
+      ),
       reganLocations: REGAN_LOCATIONS_URL,
       reganDetails: `https://www.toronto.ca/data/parks/prd/regan/${REGAN_SEASON}/{locationid}/{category}/all.json`,
     },
@@ -422,6 +495,7 @@ async function main() {
       locationsWithKidPrograms: withKidPrograms.length,
       skatingFacilitiesWithPrograms: skateWithPrograms.length,
       skatingLocationsWithKidPrograms: skateWithKidPrograms.length,
+      additionalDropinFacilitiesWithPrograms: additionalDropinFacilities.length,
       registeredFacilitiesWithPrograms: regFacilities.length,
       totalFacilitiesCombined: combinedFacilities.length,
       // Backward-compatible alias kept for older UI code paths.
@@ -435,7 +509,7 @@ async function main() {
   await writeFile(OUTPUT_FILE, JSON.stringify(output, null, 2), "utf8");
 
   console.log(
-    `Saved ${combinedFacilities.length} total locations (${withPrograms.length} swim, ${skateWithPrograms.length} skate, ${regFacilities.length} registered) to ${OUTPUT_FILE}`
+    `Saved ${combinedFacilities.length} total locations (${withPrograms.length} swim, ${skateWithPrograms.length} skate, ${additionalDropinFacilities.length} additional drop-in, ${regFacilities.length} registered) to ${OUTPUT_FILE}`
   );
 }
 

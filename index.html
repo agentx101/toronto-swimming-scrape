@@ -28,17 +28,17 @@
         </div>
       </section>
       <section id="controls" class="controls" aria-label="Search and filters">
+        <div class="secondary-toggles">
+          <fieldset class="scope-toggle"><legend>Program scope</legend><div class="scope-options"><input id="scopeDropin" type="radio" name="programScope" value="dropin" checked /><label for="scopeDropin">Drop-in</label><input id="scopeRegistered" type="radio" name="programScope" value="registered" /><label for="scopeRegistered">Registered</label></div></fieldset>
+          <label class="switch-field kid-friendly-toggle"><input id="kidOnly" type="checkbox" checked /><span class="switch" aria-hidden="true"></span><span>Kid-friendly</span></label>
+        </div>
         <div class="quick-filters">
-          <label class="compact-field" for="radiusKm"><span>Radius</span><select id="radiusKm" aria-label="Search radius"><option value="2">2 km</option><option value="5">5 km</option><option value="8" selected>8 km</option><option value="15">15 km</option><option value="30">30 km</option></select></label>
           <div class="activity-picker">
             <span>Activity</span>
             <button id="activityPickerBtn" type="button" aria-expanded="false" aria-controls="activityPickerPanel"><span id="activityPickerLabel">All activities</span><span aria-hidden="true">v</span></button>
             <div id="activityPickerPanel" class="activity-picker-panel" role="dialog" aria-label="Activity filters" hidden></div>
           </div>
-        </div>
-        <div class="secondary-toggles">
-          <fieldset class="scope-toggle"><legend>Program scope</legend><div class="scope-options"><input id="scopeDropin" type="radio" name="programScope" value="dropin" checked /><label for="scopeDropin">Drop-in</label><input id="scopeRegistered" type="radio" name="programScope" value="registered" /><label for="scopeRegistered">Registered</label></div></fieldset>
-          <label class="switch-field kid-friendly-toggle"><input id="kidOnly" type="checkbox" checked /><span class="switch" aria-hidden="true"></span><span>Kid-friendly</span></label>
+          <label class="compact-field" for="radiusKm"><span>Radius</span><select id="radiusKm" aria-label="Search radius"><option value="2">2 km</option><option value="5">5 km</option><option value="8" selected>8 km</option><option value="15">15 km</option><option value="30">30 km</option></select></label>
         </div>
         <div class="filter-drawer">
           <p class="filter-title">More options <span>Refine your results</span></p>
@@ -68,6 +68,6 @@
       </section>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="./app.js?v=20261122-03" type="module"></script>
+    <script src="./app.js?v=20261122-04" type="module"></script>
   </body>
 </html>

@@ -359,7 +359,7 @@ function renderActivityPicker() {
       selectedActivitySubsets.delete(key);
     }
   }
-  activityPickerPanel.innerHTML = ACTIVITY_CATEGORIES.map(({ name, icon }) => {
+  activityPickerPanel.innerHTML = ACTIVITY_CATEGORIES.filter(({ name }) => catalog.get(name)?.size).map(({ name, icon }) => {
     const checked = selectedActivityCategories.has(name);
     const groups = Array.from(catalog.get(name) || []).sort(([a], [b]) => a.localeCompare(b));
     const groupControls = checked
