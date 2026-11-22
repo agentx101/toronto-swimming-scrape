@@ -34,6 +34,11 @@ jobs:
         with:
           path: .
 
+      # The GitHub artifact API can take a few seconds to index a just-uploaded
+      # Pages artifact; deploy-pages otherwise occasionally sees zero artifacts.
+      - name: Wait for artifact indexing
+        run: sleep 10
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
