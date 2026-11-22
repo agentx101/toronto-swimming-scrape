@@ -53,8 +53,11 @@ Deno.serve(async (request) => {
     const name = String(payload.name || "").trim().slice(0, 80);
     const phone = cleanPhone(payload.phone);
     if (!name || !phone) return response(request, { error: "Enter your name and a valid phone number." }, 400);
-    const [phoneHash, encryptedPhone, encryptedName] = await Promise.all([sha256(phone), encrypt(phone), encrypt(name)]);
-    const { error } = await supabase.from("portal_contacts").upsert({ device_hash: visitorHash, phone_hash: phoneHash, phone_ciphertext: encryptedPhone.ciphertext, phone_iv: encryptedPhone.iv, name_ciphertext: encryptedName.ciphertext, name_iv: encryptedName.iv, whatsapp_consent_at: new Date().toISOString(), preferred_filters: safeFilters(payload.filters) }, { onConflict: "device_hash" });
+    const address = String(payload.address || "").trim().slice(0, 180);
+    const [phoneHash, encryptedPhone, encryptedName, encryptedAddress] = await Promise.all([
+      sha256(phone), encrypt(phone), encrypt(name), address ? encrypt(address) : Promise.resolve(null),
+    ]);
+    const { error } = await supabase.from("portal_contacts").upsert({ device_hash: visitorHash, phone_hash: phoneHash, phone_ciphertext: encryptedPhone.ciphertext, phone_iv: encryptedPhone.iv, name_ciphertext: encryptedName.ciphertext, name_iv: encryptedName.iv, address_ciphertext: encryptedAddress?.ciphertext || null, address_iv: encryptedAddress?.iv || null, whatsapp_consent_at: new Date().toISOString(), preferred_filters: safeFilters(payload.filters) }, { onConflict: "device_hash" });
     if (error) throw error;
     return response(request, { ok: true });
   } catch (error) { console.error("portal-intake error", error); return response(request, { error: "We could not save that information. Please try again." }, 500); }

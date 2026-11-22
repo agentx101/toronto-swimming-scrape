@@ -139,6 +139,7 @@ h1 { font-family: "Fraunces", serif; font-size: clamp(2.6rem, 5vw, 5rem); line-h
 .contact-card > p { color: var(--muted); line-height: 1.45; margin: 0 0 18px; }
 .contact-card form { display: grid; gap: 12px; }
 .contact-card form > label:not(.consent-check) { color: var(--muted); display: grid; font-size: .78rem; font-weight: 700; gap: 5px; }
+.optional-label { font-size: .7rem; font-weight: 500; text-transform: none; }
 .contact-card input[type="text"], .contact-card input[type="tel"] { border: 1px solid var(--line); border-radius: 9px; color: var(--ink); min-height: 42px; padding: 8px 10px; }
 .contact-card .primary-action { min-height: 44px; padding: 10px 16px; }
 .consent-check { align-items: flex-start; color: var(--muted); display: flex; font-size: .8rem; gap: 8px; line-height: 1.35; }

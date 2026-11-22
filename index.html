@@ -80,7 +80,8 @@
         <form id="contactForm">
           <label>Name<input id="contactName" name="name" type="text" maxlength="80" autocomplete="name" required /></label>
           <label>Phone number<input id="contactPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" required /></label>
-          <label class="consent-check"><input id="contactConsent" name="consent" type="checkbox" required />I agree to receive updates on WhatsApp.</label>
+          <label>Address or neighbourhood <span class="optional-label">Optional</span><input id="contactAddress" name="address" type="text" maxlength="180" autocomplete="street-address" /></label>
+          <label class="consent-check"><input id="contactConsent" name="consent" type="checkbox" required />I agree to receive updates on WhatsApp and to securely store the details above.</label>
           <button class="primary-action" type="submit">Save updates</button>
           <button id="contactSkip" class="skip-link" type="button">Not now</button>
           <p id="contactStatus" class="contact-status" aria-live="polite"></p>
