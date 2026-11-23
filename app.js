@@ -834,7 +834,7 @@ contactFormEl.addEventListener("submit", async (event) => {
   const form = new FormData(contactFormEl);
   contactStatusEl.textContent = "Saving your preferences...";
   try {
-    const response = await fetch(PORTAL_INTAKE_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "contact", deviceId: deviceId(), name: form.get("name"), phone: form.get("phone"), address: form.get("address"), consent: form.get("consent") === "on", mixpanelConsent: form.get("mixpanelConsent") === "on", filters: filterSnapshot() }) });
+    const response = await fetch(PORTAL_INTAKE_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "contact", deviceId: deviceId(), name: form.get("name"), phone: form.get("phone"), address: form.get("address"), consent: form.get("consent") === "on", filters: filterSnapshot() }) });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "Could not save your details.");
     localStorage.setItem(CONTACT_PROMPT_KEY, "submitted");

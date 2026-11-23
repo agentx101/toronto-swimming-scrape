@@ -81,7 +81,8 @@ Deno.serve(async (request) => {
     const [phoneHash, encryptedPhone, encryptedName, encryptedAddress] = await Promise.all([
       sha256(phone), encrypt(phone), encrypt(name), address ? encrypt(address) : Promise.resolve(null),
     ]);
-    const mixpanelConsent = payload.mixpanelConsent === true;
+    // The required contact consent explicitly includes the private Mixpanel profile.
+    const mixpanelConsent = true;
     const { error } = await supabase.from("portal_contacts").upsert({ device_hash: visitorHash, phone_hash: phoneHash, phone_ciphertext: encryptedPhone.ciphertext, phone_iv: encryptedPhone.iv, name_ciphertext: encryptedName.ciphertext, name_iv: encryptedName.iv, address_ciphertext: encryptedAddress?.ciphertext || null, address_iv: encryptedAddress?.iv || null, whatsapp_consent_at: new Date().toISOString(), mixpanel_consent_at: mixpanelConsent ? new Date().toISOString() : null, preferred_filters: safeFilters(payload.filters) }, { onConflict: "device_hash" });
     if (error) throw error;
     if (mixpanelConsent) await updateMixpanelProfile(visitorHash, name, phone, address);
