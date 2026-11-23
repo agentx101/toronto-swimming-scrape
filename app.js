@@ -107,9 +107,24 @@ function showSavedAddress(address, pos) {
 function restoreSavedAddress() {
   try {
     const saved = JSON.parse(localStorage.getItem(SAVED_ADDRESS_KEY) || "null");
-    if (!saved?.address || !Number.isFinite(saved.lat) || !Number.isFinite(saved.lng)) return;
+    if (!saved?.address || !Number.isFinite(saved.lat) || !Number.isFinite(saved.lng)) return false;
     showSavedAddress(saved.address, saved);
+    return true;
   } catch { localStorage.removeItem(SAVED_ADDRESS_KEY); }
+  return false;
+}
+async function restoreContactAddress() {
+  try {
+    const response = await fetch(PORTAL_INTAKE_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "preferences", deviceId: deviceId() }) });
+    const payload = await response.json();
+    const address = String(payload?.address || "").trim();
+    if (!response.ok || !address) return;
+    const pos = await geocodeAddress(address);
+    showSavedAddress(address, pos);
+    rememberAddress(address, pos);
+  } catch {
+    // A missing or unavailable saved preference should not interrupt the page.
+  }
 }
 function filterSnapshot() {
   return { scope: effectiveScope(), kidOnly: kidOnlyEl.checked, categories: [...selectedActivityCategories], groups: [...selectedActivityGroups], subsets: [...selectedActivitySubsets] };
@@ -874,7 +889,7 @@ contactFormEl.addEventListener("submit", async (event) => {
 });
 document.querySelector('.site-footer a[href^="mailto:"]').addEventListener("click", () => track("contact_link_clicked"));
 restoreFilters();
-restoreSavedAddress();
+if (!restoreSavedAddress()) void restoreContactAddress();
 initializeDateAndTimeControls();
 requestAnimationFrame(() => map.invalidateSize());
 window.addEventListener("resize", () => map.invalidateSize());

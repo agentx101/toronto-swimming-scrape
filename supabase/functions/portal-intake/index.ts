@@ -62,6 +62,11 @@ Deno.serve(async (request) => {
     const deviceId = String(payload?.deviceId || "");
     if (!/^[a-zA-Z0-9_-]{20,120}$/.test(deviceId)) return response(request, { error: "Invalid device identifier." }, 400);
     const visitorHash = await sha256(deviceId);
+    if (payload.action === "preferences") {
+      const { data: contact, error } = await supabase.from("portal_contacts").select("address_ciphertext,address_iv").eq("device_hash", visitorHash).maybeSingle();
+      if (error) throw error;
+      return response(request, { address: await decrypt(contact?.address_ciphertext || null, contact?.address_iv || null) });
+    }
     if (payload.action === "analytics") {
       const events = Array.isArray(payload.events) ? payload.events.slice(0, 20) : [];
       const rows = events.flatMap((event: Record<string, unknown>) => { const name = String(event?.name || ""); if (!validEvents.has(name)) return []; return [{ visitor_hash: visitorHash, event_name: name, properties: safeFilters(event?.properties), occurred_at: new Date().toISOString() }]; });
