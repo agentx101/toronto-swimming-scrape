@@ -5,6 +5,7 @@ const encryptionSecret = Deno.env.get("CONTACT_ENCRYPTION_KEY") || "";
 const hashSalt = Deno.env.get("CONTACT_HASH_SALT") || "";
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const mixpanelToken = Deno.env.get("MIXPANEL_PROJECT_TOKEN") || "";
 const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
 const encoder = new TextEncoder();
 const validEvents = new Set(["page_view", "scope_changed", "activity_filter_changed", "search_started", "search_completed", "contact_prompt_opened", "contact_prompt_skipped", "contact_submitted", "contact_submit_failed", "contact_link_clicked"]);
@@ -30,6 +31,25 @@ function safeFilters(value: unknown) {
   const input = value as Record<string, unknown>;
   return { scope: input.scope === "registered" ? "registered" : "dropin", kidOnly: Boolean(input.kidOnly), categories: Array.isArray(input.categories) ? input.categories.filter((item) => typeof item === "string").slice(0, 8) : [], groups: Array.isArray(input.groups) ? input.groups.filter((item) => typeof item === "string").slice(0, 30) : [], subsets: Array.isArray(input.subsets) ? input.subsets.filter((item) => typeof item === "string").slice(0, 50) : [] };
 }
+async function sendMixpanelEvents(rows: Array<{ visitor_hash: string; event_name: string; properties: Record<string, unknown>; occurred_at: string }>) {
+  if (!mixpanelToken || !rows.length) return;
+  try {
+    const events = rows.map((row) => ({
+      event: row.event_name,
+      properties: { token: mixpanelToken, distinct_id: row.visitor_hash, time: Math.floor(new Date(row.occurred_at).getTime() / 1000), application: "toronto-activity-finder", ...row.properties },
+    }));
+    const result = await fetch("https://api.mixpanel.com/track?verbose=1", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(events) });
+    if (!result.ok) console.error("Mixpanel event delivery failed", await result.text());
+  } catch (error) { console.error("Mixpanel event delivery failed", error); }
+}
+async function updateMixpanelProfile(visitorHash: string, name: string, phone: string, address: string) {
+  if (!mixpanelToken) return;
+  try {
+    const profile = { $token: mixpanelToken, $distinct_id: visitorHash, $set: { $name: name, $phone: phone, ...(address ? { address } : {}) } };
+    const result = await fetch("https://api.mixpanel.com/engage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify([profile]) });
+    if (!result.ok) console.error("Mixpanel profile delivery failed", await result.text());
+  } catch (error) { console.error("Mixpanel profile delivery failed", error); }
+}
 
 Deno.serve(async (request) => {
   const origin = request.headers.get("origin") || "";
@@ -45,7 +65,11 @@ Deno.serve(async (request) => {
     if (payload.action === "analytics") {
       const events = Array.isArray(payload.events) ? payload.events.slice(0, 20) : [];
       const rows = events.flatMap((event: Record<string, unknown>) => { const name = String(event?.name || ""); if (!validEvents.has(name)) return []; return [{ visitor_hash: visitorHash, event_name: name, properties: safeFilters(event?.properties), occurred_at: new Date().toISOString() }]; });
-      if (rows.length) { const { error } = await supabase.from("portal_analytics_events").insert(rows); if (error) throw error; }
+      if (rows.length) {
+        const { error } = await supabase.from("portal_analytics_events").insert(rows);
+        if (error) throw error;
+        await sendMixpanelEvents(rows);
+      }
       return response(request, { ok: true });
     }
     if (payload.action !== "contact") return response(request, { error: "Invalid action." }, 400);
@@ -57,8 +81,10 @@ Deno.serve(async (request) => {
     const [phoneHash, encryptedPhone, encryptedName, encryptedAddress] = await Promise.all([
       sha256(phone), encrypt(phone), encrypt(name), address ? encrypt(address) : Promise.resolve(null),
     ]);
-    const { error } = await supabase.from("portal_contacts").upsert({ device_hash: visitorHash, phone_hash: phoneHash, phone_ciphertext: encryptedPhone.ciphertext, phone_iv: encryptedPhone.iv, name_ciphertext: encryptedName.ciphertext, name_iv: encryptedName.iv, address_ciphertext: encryptedAddress?.ciphertext || null, address_iv: encryptedAddress?.iv || null, whatsapp_consent_at: new Date().toISOString(), preferred_filters: safeFilters(payload.filters) }, { onConflict: "device_hash" });
+    const mixpanelConsent = payload.mixpanelConsent === true;
+    const { error } = await supabase.from("portal_contacts").upsert({ device_hash: visitorHash, phone_hash: phoneHash, phone_ciphertext: encryptedPhone.ciphertext, phone_iv: encryptedPhone.iv, name_ciphertext: encryptedName.ciphertext, name_iv: encryptedName.iv, address_ciphertext: encryptedAddress?.ciphertext || null, address_iv: encryptedAddress?.iv || null, whatsapp_consent_at: new Date().toISOString(), mixpanel_consent_at: mixpanelConsent ? new Date().toISOString() : null, preferred_filters: safeFilters(payload.filters) }, { onConflict: "device_hash" });
     if (error) throw error;
+    if (mixpanelConsent) await updateMixpanelProfile(visitorHash, name, phone, address);
     return response(request, { ok: true });
   } catch (error) { console.error("portal-intake error", error); return response(request, { error: "We could not save that information. Please try again." }, 500); }
 });

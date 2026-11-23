@@ -67,7 +67,6 @@ const NEXT_REGISTERED_SEASON = {
   ],
 };
 const PORTAL_INTAKE_URL = "https://qqxbnadczaocvvryzsfi.supabase.co/functions/v1/portal-intake";
-const MIXPANEL_TOKEN = "47a83f241cfb031ffb05a8fe3a45a585";
 const DEVICE_ID_KEY = "toronto-activity-device-id";
 const CONTACT_PROMPT_KEY = "toronto-activity-contact-prompt";
 const FILTERS_KEY = "toronto-activity-filters";
@@ -91,17 +90,6 @@ function deviceId() {
   let value = localStorage.getItem(DEVICE_ID_KEY);
   if (!value) { value = crypto.randomUUID().replaceAll("-", ""); localStorage.setItem(DEVICE_ID_KEY, value); }
   return value;
-}
-function initializeMixpanel() {
-  if (!window.mixpanel?.init) return false;
-  window.mixpanel.init(MIXPANEL_TOKEN, {
-    autocapture: false,
-    record_sessions_percent: 0,
-    persistence: "localStorage",
-  });
-  // Link portal events by an anonymous device ID, never names, phones, or addresses.
-  window.mixpanel.identify(deviceId());
-  return true;
 }
 function filterSnapshot() {
   return { scope: effectiveScope(), kidOnly: kidOnlyEl.checked, categories: [...selectedActivityCategories], groups: [...selectedActivityGroups], subsets: [...selectedActivitySubsets] };
@@ -128,7 +116,6 @@ async function flushAnalytics() {
   } catch { /* Keep the privacy-safe event queue for a later attempt. */ }
 }
 function track(name, properties = {}) {
-  window.mixpanel?.track(name, { ...properties, application: "toronto-activity-finder" });
   let events;
   try { events = JSON.parse(localStorage.getItem(ANALYTICS_QUEUE_KEY) || "[]"); } catch { events = []; }
   events.push({ name, properties, at: new Date().toISOString() });
@@ -847,7 +834,7 @@ contactFormEl.addEventListener("submit", async (event) => {
   const form = new FormData(contactFormEl);
   contactStatusEl.textContent = "Saving your preferences...";
   try {
-    const response = await fetch(PORTAL_INTAKE_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "contact", deviceId: deviceId(), name: form.get("name"), phone: form.get("phone"), address: form.get("address"), consent: form.get("consent") === "on", filters: filterSnapshot() }) });
+    const response = await fetch(PORTAL_INTAKE_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "contact", deviceId: deviceId(), name: form.get("name"), phone: form.get("phone"), address: form.get("address"), consent: form.get("consent") === "on", mixpanelConsent: form.get("mixpanelConsent") === "on", filters: filterSnapshot() }) });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "Could not save your details.");
     localStorage.setItem(CONTACT_PROMPT_KEY, "submitted");
@@ -861,11 +848,7 @@ restoreFilters();
 initializeDateAndTimeControls();
 requestAnimationFrame(() => map.invalidateSize());
 window.addEventListener("resize", () => map.invalidateSize());
-if (initializeMixpanel()) {
-  track("page_view");
-} else {
-  window.addEventListener("load", () => { if (initializeMixpanel()) track("page_view"); }, { once: true });
-}
+track("page_view");
 if (!localStorage.getItem(CONTACT_PROMPT_KEY)) setTimeout(openContactModal, 900);
 loadData().catch((e) => {
   searchBtn.disabled = true;
