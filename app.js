@@ -856,6 +856,16 @@ contactFormEl.addEventListener("submit", async (event) => {
     const response = await fetch(PORTAL_INTAKE_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "contact", deviceId: deviceId(), name: form.get("name"), phone: form.get("phone"), address: form.get("address"), consent: form.get("consent") === "on", filters: filterSnapshot() }) });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "Could not save your details.");
+    const submittedAddress = String(form.get("address") || "").trim();
+    if (submittedAddress) {
+      try {
+        const pos = await geocodeAddress(submittedAddress);
+        showSavedAddress(submittedAddress, pos);
+        rememberAddress(submittedAddress, pos);
+      } catch {
+        // Contact details were saved even if an optional address could not be located.
+      }
+    }
     localStorage.setItem(CONTACT_PROMPT_KEY, "submitted");
     track("contact_submitted", filterSnapshot());
     contactStatusEl.textContent = "You are all set.";
