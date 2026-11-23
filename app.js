@@ -68,6 +68,7 @@ const NEXT_REGISTERED_SEASON = {
 };
 const PORTAL_INTAKE_URL = "https://qqxbnadczaocvvryzsfi.supabase.co/functions/v1/portal-intake";
 const DEVICE_ID_KEY = "toronto-activity-device-id";
+const SAVED_ADDRESS_KEY = "toronto-activity-default-address";
 const CONTACT_PROMPT_KEY = "toronto-activity-contact-prompt";
 const FILTERS_KEY = "toronto-activity-filters";
 const ANALYTICS_QUEUE_KEY = "toronto-activity-analytics";
@@ -90,6 +91,25 @@ function deviceId() {
   let value = localStorage.getItem(DEVICE_ID_KEY);
   if (!value) { value = crypto.randomUUID().replaceAll("-", ""); localStorage.setItem(DEVICE_ID_KEY, value); }
   return value;
+}
+function rememberAddress(address, pos) {
+  const saved = { address: String(address).trim(), lat: Number(pos.lat), lng: Number(pos.lng) };
+  if (!saved.address || !Number.isFinite(saved.lat) || !Number.isFinite(saved.lng)) return;
+  localStorage.setItem(SAVED_ADDRESS_KEY, JSON.stringify(saved));
+}
+function showSavedAddress(address, pos) {
+  selectedAddress = { address, lat: Number(pos.lat), lng: Number(pos.lng) };
+  addressEl.value = address;
+  if (userMarker) map.removeLayer(userMarker);
+  userMarker = L.marker([pos.lat, pos.lng], { icon: originMarkerIcon }).addTo(map).bindPopup(originPopup(address));
+  map.setView([pos.lat, pos.lng], 14);
+}
+function restoreSavedAddress() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SAVED_ADDRESS_KEY) || "null");
+    if (!saved?.address || !Number.isFinite(saved.lat) || !Number.isFinite(saved.lng)) return;
+    showSavedAddress(saved.address, saved);
+  } catch { localStorage.removeItem(SAVED_ADDRESS_KEY); }
 }
 function filterSnapshot() {
   return { scope: effectiveScope(), kidOnly: kidOnlyEl.checked, categories: [...selectedActivityCategories], groups: [...selectedActivityGroups], subsets: [...selectedActivitySubsets] };
@@ -190,12 +210,9 @@ function showAddressSuggestions(matches) {
     button.textContent = match.display_name;
     button.addEventListener("click", () => {
       const pos = { lat: Number(match.lat), lng: Number(match.lon) };
-      selectedAddress = { address: match.display_name, ...pos };
-      addressEl.value = match.display_name;
+      showSavedAddress(match.display_name, pos);
+      rememberAddress(match.display_name, pos);
       addressSuggestionsEl.hidden = true;
-      if (userMarker) map.removeLayer(userMarker);
-      userMarker = L.marker([pos.lat, pos.lng], { icon: originMarkerIcon }).addTo(map).bindPopup(originPopup(match.display_name));
-      map.setView([pos.lat, pos.lng], 14);
       setStatus("Address selected. Choose filters, then search nearby.");
     });
     addressSuggestionsEl.appendChild(button);
@@ -691,6 +708,8 @@ async function runSearch() {
   setStatus("Finding your address...");
   try {
     const pos = await geocodeAddress(address);
+    selectedAddress = { address, ...pos };
+    rememberAddress(address, pos);
     addressSuggestionsEl.hidden = true;
     const facilities = data.facilities
       .map((f) => ({
@@ -845,6 +864,7 @@ contactFormEl.addEventListener("submit", async (event) => {
 });
 document.querySelector('.site-footer a[href^="mailto:"]').addEventListener("click", () => track("contact_link_clicked"));
 restoreFilters();
+restoreSavedAddress();
 initializeDateAndTimeControls();
 requestAnimationFrame(() => map.invalidateSize());
 window.addEventListener("resize", () => map.invalidateSize());
