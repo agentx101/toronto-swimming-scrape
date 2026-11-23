@@ -119,6 +119,8 @@ async function restoreContactAddress() {
     const payload = await response.json();
     const address = String(payload?.address || "").trim();
     if (!response.ok || !address) return;
+    // Show the preference even if the map lookup needs a fallback.
+    addressEl.value = address;
     const pos = await geocodeAddress(address);
     showSavedAddress(address, pos);
     rememberAddress(address, pos);
@@ -675,14 +677,15 @@ async function geocodeAddress(address) {
   if (selectedAddress?.address === address) {
     return { lat: selectedAddress.lat, lng: selectedAddress.lng };
   }
+  const locationQuery = /\btoronto\b/i.test(address) ? address : `${address}, Toronto, ON`;
   try {
-    const matches = await findTorontoAddresses(address, 1);
+    const matches = await findTorontoAddresses(locationQuery, 1);
     if (matches.length) return { lat: Number(matches[0].lat), lng: Number(matches[0].lon) };
   } catch {
     // Addresses outside Toronto can still be resolved by the fallback service.
   }
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(
-    address
+    locationQuery
   )}`;
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`Geocoding failed (${res.status})`);
