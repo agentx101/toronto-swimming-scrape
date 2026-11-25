@@ -767,7 +767,7 @@ async function runSearch() {
 
 async function loadData() {
   setStatus("Loading local data...");
-  const res = await fetch("./data/swim-young-kids.json");
+  const res = await fetch("./data/swim-young-kids.json?v=20261124-01");
   if (!res.ok) throw new Error("Missing data/swim-young-kids.json");
   data = await res.json();
   if (!Array.isArray(data?.facilities)) {
